@@ -19,7 +19,8 @@ getFileSize(
 static bool
 readFileStream(
     std::ifstream& _fs,
-    std::vector<uint8_t>& refVec
+    char* data,
+    size_t size
 )
 {
     bool ret = false;
@@ -27,8 +28,8 @@ readFileStream(
     if(_fs.is_open())
     {
         _fs.read(
-            reinterpret_cast<char*>(refVec.data()),
-            refVec.capacity()
+            data,
+            size
         );
         ret = true;
     }
@@ -39,17 +40,17 @@ readFileStream(
 static bool
 writeFileStream(
     std::ofstream& _fs,
-    std::vector<uint8_t>& refVec
+    const char* data,
+    size_t size
 )
 {
     bool ret = false;
-    char* data = reinterpret_cast<char*>(refVec.data());
 
     if(_fs.is_open())
     {
         _fs.write(
             data,
-            strlen(data)
+            size
         );
         ret = true;
     }
@@ -84,7 +85,7 @@ Zip::Uninitialize()
 bool 
 Zip::Compress()
 {
-    bool status = true;
+    bool status = false;
     size_t fileSize = 0;
 
     fileSize = getFileSize(_infile);
@@ -92,7 +93,8 @@ Zip::Compress()
     {
         status = readFileStream(
             _infile,
-            inBuf
+            reinterpret_cast<char*>(inBuf.data()),
+            inBuf.capacity()
         );
         if(status)
         {
@@ -102,7 +104,8 @@ Zip::Compress()
             
             status = writeFileStream(
                 _outfile,
-                outBuf
+                reinterpret_cast<char*>(outBuf.data()),
+                zipStream.total_out
             );
         }
     }
@@ -112,7 +115,32 @@ Zip::Compress()
 
 bool Zip::Extract()
 {
-    return true;
+    bool status = false;
+    size_t fileSize = 0;
+
+    fileSize = getFileSize(_infile);
+    if(fileSize > 0)
+    {
+        status = readFileStream(
+            _infile,
+            reinterpret_cast<char*>(inBuf.data()),
+            fileSize
+        );
+        if(status)
+        {
+            inflateInit(&zipStream);
+            inflate(&zipStream, Z_NO_FLUSH);
+            inflateEnd(&zipStream);
+            
+            status = writeFileStream(
+                _outfile,
+                reinterpret_cast<char*>(outBuf.data()),
+                zipStream.total_out
+            );
+        }
+    }
+
+    return status;
 }
 
 }

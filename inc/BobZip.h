@@ -14,6 +14,7 @@ namespace bob::compress
 class Zip : public FileCompress
 {
     z_stream zipStream;
+    size_t fileSize;
 
     std::vector<uint8_t> inBuf;
     std::vector<uint8_t> outBuf;
