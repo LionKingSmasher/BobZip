@@ -60,16 +60,17 @@ protected:
 
     bool
     writeFileStream(
-        const char* data,
+        void* data,
         size_t size
     )
     {
         bool ret = false;
+        char* convertData = reinterpret_cast<char*>(data);
 
         if(_outfile.is_open())
         {
             _outfile.write(
-                data,
+                convertData,
                 size
             );
             ret = true;
@@ -80,16 +81,17 @@ protected:
     
     bool
     readFileStream(
-        char* data,
+        void* data,
         size_t size
     )
     {
         bool ret = false;
+        char* convertData = reinterpret_cast<char*>(data);
 
         if(_infile.is_open())
         {
             _infile.read(
-                data,
+                convertData,
                 size
             );
             ret = true;

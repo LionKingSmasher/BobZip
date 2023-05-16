@@ -118,6 +118,8 @@ Zip::GetFileNameInZip(
 void Zip::Initialize(size_t bufSize)
 {
     inBuf.reserve(bufSize);
+    outBuf.reserve(bufSize);
+
     zipStream.zalloc = nullptr;
     zipStream.zfree = nullptr;
     zipStream.opaque = nullptr;
@@ -178,8 +180,6 @@ bool Zip::Extract()
 
     std::string extractFilename = "";
 
-    char* zipFileData = nullptr;
-
     header = AllocateZipFLocalHeader();
     if(header != nullptr)
     {
@@ -192,33 +192,42 @@ bool Zip::Extract()
             extractFilename
         );
 
-        zipFileData = reinterpret_cast<char*>(AllocateMemory(
-            header->compressSize
-        ));
-
         readFileStream(
-            zipFileData,
+            reinterpret_cast<char*>(inBuf.data()),
             header->compressSize
         );
+
+        std::cout << "Compress Size : " << header->compressSize << std::endl;
+        std::cout << "Uncompress Size : " << header->uncompressSize << std::endl;
+
+        zipStream.avail_in = header->compressSize;
+        zipStream.avail_out = header->uncompressSize;
 
         switch(header->compressionMethod)
         {
         // STORE (Normal)
         case CompressionMethod::STORE:
-
             writeFileStream(
-                zipFileData,
+                inBuf.data(),
                 header->uncompressSize
             );
-
             break;
 
         // Deflate
         case CompressionMethod::DEFLATE:
+            inflateInit2(&zipStream, -MAX_WBITS);
+            inflate(&zipStream, Z_FINISH);
+            inflateEnd(&zipStream);
+
+            writeFileStream(
+                outBuf.data(),
+                header->uncompressSize
+            );
+
             break;
         }
 
-        FreeMemory(zipFileData);
+        inBuf.clear();
         
         CloseExtractFile();
 
