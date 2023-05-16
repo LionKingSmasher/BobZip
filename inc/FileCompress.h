@@ -22,9 +22,11 @@ public:
 
     bool OpenFile(const std::string& filename)
     {
-        if(_infile.is_open() ||
-           _outfile.is_open())
-            return false;
+        if(_infile.is_open())
+            _infile.close();
+        
+        if(_outfile.is_open())
+            _outfile.close();
 
         _infile.open(filename);
         _outfile.open(filename + "_test");

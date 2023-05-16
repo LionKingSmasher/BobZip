@@ -16,18 +16,20 @@ getFileSize(
     return fileSize;
 }
 
-static bool
-readFileStream(
-    std::ifstream& _fs,
+namespace bob::compress
+{
+
+bool
+Zip::readFileStream(
     char* data,
     size_t size
 )
 {
     bool ret = false;
 
-    if(_fs.is_open())
+    if(_infile.is_open())
     {
-        _fs.read(
+        _infile.read(
             data,
             size
         );
@@ -37,18 +39,17 @@ readFileStream(
     return ret;
 }
 
-static bool
-writeFileStream(
-    std::ofstream& _fs,
+bool 
+Zip::writeFileStream(
     const char* data,
     size_t size
 )
 {
     bool ret = false;
 
-    if(_fs.is_open())
+    if(_outfile.is_open())
     {
-        _fs.write(
+        _outfile.write(
             data,
             size
         );
@@ -58,14 +59,81 @@ writeFileStream(
     return ret;
 }
 
-namespace bob::compress
+ZipLocalHeader*
+Zip::AllocateZipFLocalHeader(
+)
 {
+    bool ret = false;
+    size_t recentPos = 0;
+    size_t headerSize = 0;
+
+    ZipLocalHeader* header = nullptr;
+
+    if(header == nullptr)
+    {
+        header = reinterpret_cast<decltype(header)>(AllocateMemory(
+            sizeof(*header)
+        ));
+    }
+
+    recentPos = _infile.tellg();
+    ret = readFileStream(
+        reinterpret_cast<char*>(header),
+        sizeof(*header)
+    );
+    if(ret)
+    {
+        if(header->magicNum == localHeaderMagicNumber)
+        {
+            headerSize = sizeof(*header) + 
+                         header->fileNameLen +
+                         header->extraFieldLen;
+            
+            FreeMemory(header);
+
+            header = reinterpret_cast<decltype(header)>(AllocateMemory(
+                headerSize
+            ));
+
+            _infile.seekg(recentPos, std::ios::beg);
+            readFileStream(
+                reinterpret_cast<char*>(header),
+                headerSize
+            );
+
+            ret = true;
+        }
+    }
+
+    if(!ret)
+    {
+        FreeMemory(header);
+        header = nullptr;
+    }
+
+    return header;
+}
+
+void
+Zip::FreeZipLocalHeader(
+    ZipLocalHeader* header
+)
+{
+    FreeMemory(header);
+}
+
+
+void*
+Zip::AllocateMemory(
+    size_t size
+)
+{
+    return (new char[size]{0,});
+}
 
 void Zip::Initialize(size_t bufSize)
 {
     inBuf.reserve(bufSize);
-    outBuf.reserve(bufSize);
-
     zipStream.zalloc = nullptr;
     zipStream.zfree = nullptr;
     zipStream.opaque = nullptr;
@@ -74,6 +142,14 @@ void Zip::Initialize(size_t bufSize)
     zipStream.avail_in = inBuf.capacity(); // * sizeof(uint8_t);
     zipStream.next_out = outBuf.data();
     zipStream.avail_out = outBuf.capacity();
+}
+
+void
+Zip::FreeMemory(
+    void* mem
+)
+{
+    delete[] reinterpret_cast<char*>(mem);
 }
 
 void 
@@ -92,7 +168,6 @@ Zip::Compress()
     if(fileSize > 0)
     {
         status = readFileStream(
-            _infile,
             reinterpret_cast<char*>(inBuf.data()),
             inBuf.capacity()
         );
@@ -103,7 +178,6 @@ Zip::Compress()
             deflateEnd(&zipStream);
             
             status = writeFileStream(
-                _outfile,
                 reinterpret_cast<char*>(outBuf.data()),
                 zipStream.total_out
             );
@@ -116,28 +190,18 @@ Zip::Compress()
 bool Zip::Extract()
 {
     bool status = false;
-    size_t fileSize = 0;
+    ZipLocalHeader* header = nullptr;
 
-    fileSize = getFileSize(_infile);
-    if(fileSize > 0)
+    header = AllocateZipFLocalHeader(
+    );
+    if(header != nullptr)
     {
-        status = readFileStream(
-            _infile,
-            reinterpret_cast<char*>(inBuf.data()),
-            fileSize
-        );
-        if(status)
-        {
-            inflateInit(&zipStream);
-            inflate(&zipStream, Z_NO_FLUSH);
-            inflateEnd(&zipStream);
-            
-            status = writeFileStream(
-                _outfile,
-                reinterpret_cast<char*>(outBuf.data()),
-                zipStream.total_out
-            );
-        }
+        // TODO
+    }
+
+    if(header != nullptr)
+    {
+        FreeZipLocalHeader(header);
     }
 
     return status;
