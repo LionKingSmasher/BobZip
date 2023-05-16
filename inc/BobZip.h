@@ -4,7 +4,7 @@
 #include <vector>
 #include <zlib.h>
 
-#include "FileCompress.h"
+#include "FileCompress.hpp"
 
 #define DEFAULT_BUF_SIZE 4096
 
@@ -76,6 +76,11 @@ private:
         void* mem
     );
 
+    void
+    GetFileNameInZip(
+        std::string& refFilename,
+        const ZipLocalHeader* header
+    );
 
 public:
 

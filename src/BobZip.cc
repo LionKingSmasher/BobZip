@@ -1,4 +1,6 @@
 #include "BobZip.h"
+
+#include <memory>
 #include <string.h>
 
 static size_t
@@ -131,6 +133,28 @@ Zip::AllocateMemory(
     return (new char[size]{0,});
 }
 
+
+void
+Zip::GetFileNameInZip(
+    std::string& refFilename,
+    const ZipLocalHeader* header
+)
+{
+    size_t filenameLen = header->fileNameLen;
+    char* fileName = new char[filenameLen];
+
+    memcpy(
+        fileName,
+        header->fileNameExtraField,
+        filenameLen
+    );
+
+    refFilename = fileName;
+
+    delete[] fileName;
+}
+
+
 void Zip::Initialize(size_t bufSize)
 {
     inBuf.reserve(bufSize);
@@ -192,11 +216,18 @@ bool Zip::Extract()
     bool status = false;
     ZipLocalHeader* header = nullptr;
 
+    std::string extractFilename = "";
+
     header = AllocateZipFLocalHeader(
     );
     if(header != nullptr)
     {
-        // TODO
+        GetFileNameInZip(
+            extractFilename,
+            header
+        );
+
+        status = true;
     }
 
     if(header != nullptr)
