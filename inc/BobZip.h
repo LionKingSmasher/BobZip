@@ -45,18 +45,6 @@ class Zip : public FileCompress
 
 private:
 
-    bool
-    writeFileStream(
-        const char* data,
-        size_t size
-    );
-    bool
-    readFileStream(
-        char* data,
-        size_t size
-    );
-
-
     ZipLocalHeader*
     AllocateZipFLocalHeader(
     );

@@ -21,46 +21,6 @@ getFileSize(
 namespace bob::compress
 {
 
-bool
-Zip::readFileStream(
-    char* data,
-    size_t size
-)
-{
-    bool ret = false;
-
-    if(_infile.is_open())
-    {
-        _infile.read(
-            data,
-            size
-        );
-        ret = true;
-    }
-
-    return ret;
-}
-
-bool 
-Zip::writeFileStream(
-    const char* data,
-    size_t size
-)
-{
-    bool ret = false;
-
-    if(_outfile.is_open())
-    {
-        _outfile.write(
-            data,
-            size
-        );
-        ret = true;
-    }
-
-    return ret;
-}
-
 ZipLocalHeader*
 Zip::AllocateZipFLocalHeader(
 )
@@ -218,14 +178,49 @@ bool Zip::Extract()
 
     std::string extractFilename = "";
 
-    header = AllocateZipFLocalHeader(
-    );
+    char* zipFileData = nullptr;
+
+    header = AllocateZipFLocalHeader();
     if(header != nullptr)
     {
         GetFileNameInZip(
             extractFilename,
             header
         );
+
+        OpenExtractFile(
+            extractFilename
+        );
+
+        zipFileData = reinterpret_cast<char*>(AllocateMemory(
+            header->compressSize
+        ));
+
+        readFileStream(
+            zipFileData,
+            header->compressSize
+        );
+
+        switch(header->compressionMethod)
+        {
+        // STORE (Normal)
+        case CompressionMethod::STORE:
+
+            writeFileStream(
+                zipFileData,
+                header->uncompressSize
+            );
+
+            break;
+
+        // Deflate
+        case CompressionMethod::DEFLATE:
+            break;
+        }
+
+        FreeMemory(zipFileData);
+        
+        CloseExtractFile();
 
         status = true;
     }

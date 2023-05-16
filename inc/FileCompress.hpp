@@ -10,6 +10,8 @@ class FileCompress
 protected:
     std::ifstream _infile;
     std::ofstream _outfile;
+
+    std::vector<std::string> extractfileNameLen;
 private:
     template<class FS>
     void OpenFileStream(
@@ -55,6 +57,47 @@ protected:
     {
         CloseFileStream(_outfile);
     }
+
+    bool
+    writeFileStream(
+        const char* data,
+        size_t size
+    )
+    {
+        bool ret = false;
+
+        if(_outfile.is_open())
+        {
+            _outfile.write(
+                data,
+                size
+            );
+            ret = true;
+        }
+
+        return ret;
+    }
+    
+    bool
+    readFileStream(
+        char* data,
+        size_t size
+    )
+    {
+        bool ret = false;
+
+        if(_infile.is_open())
+        {
+            _infile.read(
+                data,
+                size
+            );
+            ret = true;
+        }
+
+        return ret;
+    }
+
 
 public:
     FileCompress() : _infile(std::ifstream()) {};

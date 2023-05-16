@@ -10,7 +10,6 @@ int main(int argc, char** argv)
 
     std::cout << "=========== Test Program ===========\n";
     std::cout << "File Opened: " << argv[1] << "\n";
-    std::cout << "Output File: " << argv[1] << "_test\n";
     std::cout << "Result: " << zip.Extract() << "\n";
     std::cout << "====================================\n";
 
