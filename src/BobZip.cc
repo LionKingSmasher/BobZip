@@ -31,40 +31,35 @@ Zip::AllocateZipFLocalHeader(
 
     ZipLocalHeader* header = nullptr;
 
-    if(header == nullptr)
-    {
-        header = reinterpret_cast<decltype(header)>(AllocateMemory(
-            sizeof(*header)
-        ));
-    }
+    header = reinterpret_cast<decltype(header)>(AllocateMemory(
+        sizeof(*header)
+    ));
 
     recentPos = _infile.tellg();
-    ret = readFileStream(
+    readFileStream(
         reinterpret_cast<char*>(header),
         sizeof(*header)
     );
-    if(ret)
+
+    if(header->magicNum == localHeaderMagicNumber)
     {
-        if(header->magicNum == localHeaderMagicNumber)
-        {
-            headerSize = sizeof(*header) + 
-                         header->fileNameLen +
-                         header->extraFieldLen;
-            
-            FreeMemory(header);
+        headerSize = sizeof(*header) + 
+                        header->fileNameLen +
+                        header->extraFieldLen;
+        
+        FreeMemory(header);
 
-            header = reinterpret_cast<decltype(header)>(AllocateMemory(
-                headerSize
-            ));
+        header = reinterpret_cast<decltype(header)>(AllocateMemory(
+            headerSize
+        ));
 
-            _infile.seekg(recentPos, std::ios::beg);
-            readFileStream(
-                reinterpret_cast<char*>(header),
-                headerSize
-            );
+        _infile.seekg(recentPos, std::ios::beg);
+        readFileStream(
+            reinterpret_cast<char*>(header),
+            headerSize
+        );
 
-            ret = true;
-        }
+        ret = true;
     }
 
     if(!ret)
@@ -180,9 +175,13 @@ bool Zip::Extract()
 
     std::string extractFilename = "";
 
-    header = AllocateZipFLocalHeader();
-    if(header != nullptr)
+    while((header = AllocateZipFLocalHeader()) != nullptr)
     {
+        zipStream.next_in = inBuf.data();
+        //zipStream.avail_in = inBuf.capacity(); // * sizeof(uint8_t);
+        //zipStream.next_out = outBuf.data();
+        //zipStream.avail_out = outBuf.capacity();
+        
         GetFileNameInZip(
             extractFilename,
             header
@@ -197,12 +196,6 @@ bool Zip::Extract()
             header->compressSize
         );
 
-        std::cout << "Compress Size : " << header->compressSize << std::endl;
-        std::cout << "Uncompress Size : " << header->uncompressSize << std::endl;
-
-        zipStream.avail_in = header->compressSize;
-        zipStream.avail_out = header->uncompressSize;
-
         switch(header->compressionMethod)
         {
         // STORE (Normal)
@@ -215,28 +208,27 @@ bool Zip::Extract()
 
         // Deflate
         case CompressionMethod::DEFLATE:
+            int err;
             inflateInit2(&zipStream, -MAX_WBITS);
-            inflate(&zipStream, Z_FINISH);
+            err = inflate(&zipStream, Z_NO_FLUSH);
             inflateEnd(&zipStream);
-
-            writeFileStream(
-                outBuf.data(),
-                header->uncompressSize
-            );
+            
+            if(err == Z_STREAM_END)
+            {
+                writeFileStream(
+                    outBuf.data(),
+                    header->uncompressSize
+                );
+            }
 
             break;
         }
-
-        inBuf.clear();
         
         CloseExtractFile();
 
-        status = true;
-    }
-
-    if(header != nullptr)
-    {
         FreeZipLocalHeader(header);
+
+        status = true;
     }
 
     return status;
