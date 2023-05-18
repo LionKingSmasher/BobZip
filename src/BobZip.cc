@@ -178,9 +178,7 @@ bool Zip::Extract()
     while((header = AllocateZipFLocalHeader()) != nullptr)
     {
         zipStream.next_in = inBuf.data();
-        //zipStream.avail_in = inBuf.capacity(); // * sizeof(uint8_t);
-        //zipStream.next_out = outBuf.data();
-        //zipStream.avail_out = outBuf.capacity();
+        zipStream.next_out = outBuf.data();
         
         GetFileNameInZip(
             extractFilename,
@@ -209,11 +207,16 @@ bool Zip::Extract()
         // Deflate
         case CompressionMethod::DEFLATE:
             int err;
-            inflateInit2(&zipStream, -MAX_WBITS);
-            err = inflate(&zipStream, Z_NO_FLUSH);
+            err = inflateInit2(&zipStream, -MAX_WBITS);
+            if(err == Z_OK)
+                err = inflate(&zipStream, Z_NO_FLUSH);
+            else
+                std::cout << "Error code: " << err << std::endl;
+                
             inflateEnd(&zipStream);
             
-            if(err == Z_STREAM_END)
+            if(err == Z_STREAM_END || 
+               err == Z_OK)
             {
                 writeFileStream(
                     outBuf.data(),
