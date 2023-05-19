@@ -5,6 +5,7 @@
 #include <zlib.h>
 
 #include "FileCompress.hpp"
+#include "test/BobTest.h"
 
 #define DEFAULT_BUF_SIZE 4096
 
@@ -33,6 +34,12 @@ struct __attribute__((__packed__)) ZipLocalHeader
     uint16_t fileNameLen;
     uint16_t extraFieldLen;
     uint8_t fileNameExtraField[0];
+};
+
+struct ZipSize
+{
+    size_t compress;
+    size_t uncompress;
 };
 
 class Zip : public FileCompress
@@ -68,6 +75,12 @@ private:
     GetFileNameInZip(
         std::string& refFilename,
         const ZipLocalHeader* header
+    );
+
+    void
+    GetSizeInZip(
+        const ZipLocalHeader* header,
+        ZipSize& zipSize
     );
 
 public:

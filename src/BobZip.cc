@@ -109,8 +109,20 @@ Zip::GetFileNameInZip(
     delete[] fileName;
 }
 
+void 
+Zip::GetSizeInZip(
+    const ZipLocalHeader* header,
+    ZipSize& zipSize
+)
+{
+    EXCEPT(header == nullptr, "header is null\n");
+    zipSize.compress = header->compressSize;
+    zipSize.uncompress = header->uncompressSize;
+}
 
-void Zip::Initialize(size_t bufSize)
+
+void 
+Zip::Initialize(size_t bufSize)
 {
     inBuf.reserve(bufSize);
     outBuf.reserve(bufSize);
@@ -170,19 +182,24 @@ Zip::Compress()
 
 bool Zip::Extract()
 {
+    int err = Z_OK;
     bool status = false;
-    ZipLocalHeader* header = nullptr;
 
+    ZipSize zipSize = {0,};
+    ZipLocalHeader* header = nullptr;
+    
     std::string extractFilename = "";
 
     while((header = AllocateZipFLocalHeader()) != nullptr)
-    {
-        zipStream.next_in = inBuf.data();
-        zipStream.next_out = outBuf.data();
-        
+    {   
         GetFileNameInZip(
             extractFilename,
             header
+        );
+
+        GetSizeInZip(
+            header,
+            zipSize
         );
 
         OpenExtractFile(
@@ -191,7 +208,8 @@ bool Zip::Extract()
 
         readFileStream(
             reinterpret_cast<char*>(inBuf.data()),
-            header->compressSize
+            (header->compressSize < inBuf.capacity()) ? header->compressSize
+                                                      : inBuf.capacity()
         );
 
         switch(header->compressionMethod)
@@ -206,22 +224,44 @@ bool Zip::Extract()
 
         // Deflate
         case CompressionMethod::DEFLATE:
-            int err;
-            err = inflateInit2(&zipStream, -MAX_WBITS);
-            if(err == Z_OK)
-                err = inflate(&zipStream, Z_NO_FLUSH);
-            else
-                std::cout << "Error code: " << err << std::endl;
-                
-            inflateEnd(&zipStream);
-            
-            if(err == Z_STREAM_END || 
-               err == Z_OK)
+
+            while(zipSize.compress > inBuf.capacity())
             {
-                writeFileStream(
-                    outBuf.data(),
-                    header->uncompressSize
-                );
+                zipStream.next_in = inBuf.data();
+                zipStream.next_out = outBuf.data();
+                err = inflateInit2(&zipStream, -MAX_WBITS);
+                if(err == Z_OK)
+                    err = inflate(&zipStream, Z_NO_FLUSH);
+                else
+                    std::cout << "Error code: " << err << std::endl;
+
+                inflateEnd(&zipStream);
+                
+                switch(err)
+                {
+                case Z_OK:
+                    // TODO 
+                    // Read File Stream
+                case Z_STREAM_END:
+                    writeFileStream(
+                        outBuf.data(),
+                        header->uncompressSize
+                    );
+                default:
+                    ASSERT(true, "%d : %s\n", err, zipStream->msg);
+                    break;
+                }
+
+                if(err == Z_STREAM_END || 
+                   err == Z_OK)
+                {
+                    writeFileStream(
+                        outBuf.data(),
+                        header->uncompressSize
+                    );
+                }
+
+                zipSize.compress -= inBuf.capacity();
             }
 
             break;
